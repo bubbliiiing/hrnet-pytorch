@@ -120,7 +120,7 @@ if __name__ == "__main__":
     #   Freeze_batch_size   模型冻结训练的batch_size
     #                       (当Freeze_Train=False时失效)
     #------------------------------------------------------------------#
-    Init_Epoch          = 66
+    Init_Epoch          = 0
     Freeze_Epoch        = 50
     Freeze_batch_size   = 8
     #------------------------------------------------------------------#
