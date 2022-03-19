@@ -1,8 +1,10 @@
 import torch
-from tqdm import tqdm
 from nets.hrnet_training import CE_Loss, Dice_loss, Focal_Loss, weights_init
+from tqdm import tqdm
+
 from utils.utils import get_lr
 from utils.utils_metrics import f_score
+
 
 def fit_one_epoch(model_train, model, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, Epoch, cuda, dice_loss, focal_loss, cls_weights, num_classes, save_period):
     total_loss      = 0

@@ -4,35 +4,31 @@ from os.path import join
 
 import matplotlib.pyplot as plt
 import numpy as np
-from keras import backend
+import torch
+import torch.nn.functional as F
 from PIL import Image
 
 
-def Iou_score(smooth = 1e-5, threhold = 0.5):
-    def _Iou_score(y_true, y_pred):
-        # score calculation
-        y_pred = backend.greater(y_pred, threhold)
-        y_pred = backend.cast(y_pred, backend.floatx())
-        intersection = backend.sum(y_true[...,:-1] * y_pred, axis=[0,1,2])
-        union = backend.sum(y_true[...,:-1] + y_pred, axis=[0,1,2]) - intersection
+def f_score(inputs, target, beta=1, smooth = 1e-5, threhold = 0.5):
+    n, c, h, w = inputs.size()
+    nt, ht, wt, ct = target.size()
+    if h != ht and w != wt:
+        inputs = F.interpolate(inputs, size=(ht, wt), mode="bilinear", align_corners=True)
+        
+    temp_inputs = torch.softmax(inputs.transpose(1, 2).transpose(2, 3).contiguous().view(n, -1, c),-1)
+    temp_target = target.view(n, -1, ct)
 
-        score = (intersection + smooth) / (union + smooth)
-        return score
-    return _Iou_score
+    #--------------------------------------------#
+    #   计算dice系数
+    #--------------------------------------------#
+    temp_inputs = torch.gt(temp_inputs, threhold).float()
+    tp = torch.sum(temp_target[...,:-1] * temp_inputs, axis=[0,1])
+    fp = torch.sum(temp_inputs                       , axis=[0,1]) - tp
+    fn = torch.sum(temp_target[...,:-1]              , axis=[0,1]) - tp
 
-def f_score(beta=1, smooth = 1e-5, threhold = 0.5):
-    def _f_score(y_true, y_pred):
-        y_pred = backend.greater(y_pred, threhold)
-        y_pred = backend.cast(y_pred, backend.floatx())
-
-        tp = backend.sum(y_true[...,:-1] * y_pred, axis=[0,1,2])
-        fp = backend.sum(y_pred         , axis=[0,1,2]) - tp
-        fn = backend.sum(y_true[...,:-1], axis=[0,1,2]) - tp
-
-        score = ((1 + beta ** 2) * tp + smooth) \
-                / ((1 + beta ** 2) * tp + beta ** 2 * fn + fp + smooth)
-        return score
-    return _f_score
+    score = ((1 + beta ** 2) * tp + smooth) / ((1 + beta ** 2) * tp + beta ** 2 * fn + fp + smooth)
+    score = torch.mean(score)
+    return score
 
 # 设标签宽W，长H
 def fast_hist(a, b, n):
