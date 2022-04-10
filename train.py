@@ -45,10 +45,16 @@ if __name__ == "__main__":
     #   没有GPU可以设置成False
     #-------------------------------#
     Cuda = True
-    #-------------------------------#
-    #   训练自己的数据集必须要修改的
-    #   自己需要的分类个数+1，如2+1
-    #-------------------------------#
+    #------------------------------------------------------------------#
+    #   fp16            是否使用混合精度训练
+    #                   可减少约一半的显存
+    #                   需要pytorch1.6.0以上
+    #------------------------------------------------------------------#
+    fp16 = False
+    #-----------------------------------------------------#
+    #   num_classes     训练自己的数据集必须要修改的
+    #                   自己需要的分类个数+1，如2+1
+    #-----------------------------------------------------#
     num_classes = 21
     #-------------------------------------------------------------------#
     #   所使用的的主干网络：
@@ -131,7 +137,7 @@ if __name__ == "__main__":
     #------------------------------------------------------------------#
     Init_Epoch          = 0
     Freeze_Epoch        = 50
-    Freeze_batch_size   = 8
+    Freeze_batch_size   = 16
     #------------------------------------------------------------------#
     #   解冻阶段训练参数
     #   此时模型的主干不被冻结了，特征提取网络会发生改变
@@ -140,7 +146,7 @@ if __name__ == "__main__":
     #   Unfreeze_batch_size     模型在解冻后的batch_size
     #------------------------------------------------------------------#
     UnFreeze_Epoch      = 100
-    Unfreeze_batch_size = 4
+    Unfreeze_batch_size = 8
     #------------------------------------------------------------------#
     #   Freeze_Train    是否进行冻结训练
     #                   默认先冻结主干训练后解冻训练。
@@ -229,6 +235,11 @@ if __name__ == "__main__":
         model.load_state_dict(model_dict)
 
     loss_history    = LossHistory("logs/", model, input_shape=input_shape)
+    if fp16:
+        from torch.cuda.amp import GradScaler as GradScaler
+        scaler = GradScaler()
+    else:
+        scaler = None
 
     model_train = model.train()
     if Cuda:
@@ -349,6 +360,6 @@ if __name__ == "__main__":
             set_optimizer_lr(optimizer, lr_scheduler_func, epoch)
 
             fit_one_epoch(model_train, model, loss_history, optimizer, epoch, 
-                    epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, dice_loss, focal_loss, cls_weights, num_classes, save_period)
+                    epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, dice_loss, focal_loss, cls_weights, num_classes, fp16, scaler, save_period, save_dir)
         
         loss_history.writer.close()
