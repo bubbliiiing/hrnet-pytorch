@@ -166,8 +166,8 @@ if __name__ == "__main__":
     Min_lr              = Init_lr * 0.01
     #------------------------------------------------------------------#
     #   optimizer_type  使用到的优化器种类，可选的有adam、sgd
-    #                   当使用Adam优化器时建议设置  Init_lr=1e-3
-    #                   当使用SGD优化器时建议设置   Init_lr=1e-2
+    #                   当使用Adam优化器时建议设置  Init_lr=5e-4
+    #                   当使用SGD优化器时建议设置   Init_lr=4e-3
     #   momentum        优化器内部使用到的momentum参数
     #   weight_decay    权值衰减，可防止过拟合
     #                   adam会导致weight_decay错误，使用adam时建议设置为0。
