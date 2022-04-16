@@ -370,9 +370,9 @@ def hrnet_classification(pretrained=False, backbone='hrnetv2_w18'):
     model = HighResolutionNet_Classification(num_classes=1000, backbone=backbone)
     if pretrained:
         model_urls = {
-            'hrnetv2_w18' : "model_data/hrnetv2_w18_imagenet_pretrained.pth",
-            'hrnetv2_w32' : "model_data/hrnetv2_w32_imagenet_pretrained.pth",
-            'hrnetv2_w48' : "model_data/hrnetv2_w48_imagenet_pretrained.pth",
+            'hrnetv2_w18' : "https://github.com/bubbliiiing/hrnet-pytorch/releases/download/v1.0/hrnetv2_w18_imagenet_pretrained.pth",
+            'hrnetv2_w32' : "https://github.com/bubbliiiing/hrnet-pytorch/releases/download/v1.0/hrnetv2_w32_imagenet_pretrained.pth",
+            'hrnetv2_w48' : "https://github.com/bubbliiiing/hrnet-pytorch/releases/download/v1.0/hrnetv2_w48_imagenet_pretrained.pth",
         }
         state_dict = load_state_dict_from_url(model_urls[backbone], model_dir="./model_data")
         model.load_state_dict(state_dict)

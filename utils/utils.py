@@ -39,3 +39,18 @@ def get_lr(optimizer):
 def preprocess_input(image):
     image /= 255.0
     return image
+
+def download_weights(backbone, model_dir="./model_data"):
+    import os
+    from torch.hub import load_state_dict_from_url
+    
+    download_urls = {
+        'hrnetv2_w18' : "https://github.com/bubbliiiing/hrnet-pytorch/releases/download/v1.0/hrnetv2_w18_imagenet_pretrained.pth",
+        'hrnetv2_w32' : "https://github.com/bubbliiiing/hrnet-pytorch/releases/download/v1.0/hrnetv2_w32_imagenet_pretrained.pth",
+        'hrnetv2_w48' : "https://github.com/bubbliiiing/hrnet-pytorch/releases/download/v1.0/hrnetv2_w48_imagenet_pretrained.pth",
+    }
+    url = download_urls[backbone]
+    
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    load_state_dict_from_url(url, model_dir)

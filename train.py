@@ -12,6 +12,7 @@ from nets.hrnet_training import (get_lr_scheduler, set_optimizer_lr,
                                  weights_init)
 from utils.callbacks import LossHistory
 from utils.dataloader import SegmentationDataset, seg_dataset_collate
+from utils.utils import download_weights
 from utils.utils_fit import fit_one_epoch
 
 '''
@@ -231,7 +232,7 @@ if __name__ == "__main__":
     #                   keras里开启多线程有些时候速度反而慢了许多
     #                   在IO为瓶颈的时候再开启多线程，即GPU运算速度远大于读取图片的速度。
     #------------------------------------------------------------------#
-    num_workers         = 4
+    num_workers     = 4
 
     #------------------------------------------------------#
     #   设置用到的显卡
@@ -248,6 +249,14 @@ if __name__ == "__main__":
     else:
         device          = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         local_rank      = 0
+
+    if pretrained:
+        if distributed:
+            if local_rank == 0:
+                download_weights(backbone)  
+            dist.barrier()
+        else:
+            download_weights(backbone)
 
     model   = HRnet(num_classes=num_classes, backbone=backbone, pretrained=pretrained)
     if not pretrained:
@@ -426,8 +435,8 @@ if __name__ == "__main__":
 
             set_optimizer_lr(optimizer, lr_scheduler_func, epoch)
 
-            fit_one_epoch(model_train, model, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, fp16, scaler, \
-                dice_loss, focal_loss, cls_weights, num_classes, save_period, save_dir, local_rank)
+            fit_one_epoch(model_train, model, loss_history, optimizer, epoch, epoch_step, epoch_step_val, gen, gen_val, UnFreeze_Epoch, Cuda, \
+                dice_loss, focal_loss, cls_weights, num_classes, fp16, scaler, save_period, save_dir, local_rank)
         
         if local_rank == 0:
             loss_history.writer.close()
