@@ -12,7 +12,7 @@ from nets.hrnet_training import (get_lr_scheduler, set_optimizer_lr,
                                  weights_init)
 from utils.callbacks import LossHistory
 from utils.dataloader import SegmentationDataset, seg_dataset_collate
-from utils.utils import download_weights
+from utils.utils import download_weights, show_config
 from utils.utils_fit import fit_one_epoch
 
 '''
@@ -250,6 +250,9 @@ if __name__ == "__main__":
         device          = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         local_rank      = 0
 
+    #----------------------------------------------------#
+    #   下载预训练权重
+    #----------------------------------------------------#
     if pretrained:
         if distributed:
             if local_rank == 0:
@@ -262,27 +265,47 @@ if __name__ == "__main__":
     if not pretrained:
         weights_init(model)
     if model_path != '':
+        #------------------------------------------------------#
+        #   权值文件请看README，百度网盘下载
+        #------------------------------------------------------#
         if local_rank == 0:
-            #------------------------------------------------------#
-            #   权值文件请看README，百度网盘下载
-            #------------------------------------------------------#
             print('Load weights {}.'.format(model_path))
+        
+        #------------------------------------------------------#
+        #   根据预训练权重的Key和模型的Key进行加载
+        #------------------------------------------------------#
         model_dict      = model.state_dict()
         pretrained_dict = torch.load(model_path, map_location = device)
-        pretrained_dict = {k: v for k, v in pretrained_dict.items() if np.shape(model_dict[k]) == np.shape(v)}
-        model_dict.update(pretrained_dict)
+        load_key, no_load_key, temp_dict = [], [], {}
+        for k, v in pretrained_dict.items():
+            if k in model_dict.keys() and np.shape(model_dict[k]) == np.shape(v):
+                temp_dict[k] = v
+                load_key.append(k)
+            else:
+                no_load_key.append(k)
+        model_dict.update(temp_dict)
         model.load_state_dict(model_dict)
+        #------------------------------------------------------#
+        #   显示没有匹配上的Key
+        #------------------------------------------------------#
+        if local_rank == 0:
+            print("\nSuccessful Load Key:", str(load_key)[:500], "……\nSuccessful Load Key Num:", len(load_key))
+            print("\nFail To Load Key:", str(no_load_key)[:500], "……\nFail To Load Key num:", len(no_load_key))
+            print("\n\033[1;33;44m温馨提示，head部分没有载入是正常现象，Backbone部分没有载入是错误的。\033[0m")
 
+    #----------------------#
+    #   记录Loss
+    #----------------------#
     if local_rank == 0:
         loss_history = LossHistory(save_dir, model, input_shape=input_shape)
     else:
         loss_history = None
         
+    #------------------------------------------------------------------#
+    #   torch 1.2不支持amp，建议使用torch 1.7.1及以上正确使用fp16
+    #   因此torch1.2这里显示"could not be resolve"
+    #------------------------------------------------------------------#
     if fp16:
-        #------------------------------------------------------------------#
-        #   torch 1.2不支持amp，建议使用torch 1.7.1及以上正确使用fp16
-        #   因此torch1.2这里显示"could not be resolve"
-        #------------------------------------------------------------------#
         from torch.cuda.amp import GradScaler as GradScaler
         scaler = GradScaler()
     else:
@@ -318,7 +341,27 @@ if __name__ == "__main__":
         val_lines = f.readlines()
     num_train   = len(train_lines)
     num_val     = len(val_lines)
-        
+
+    show_config(
+        num_classes = num_classes, backbone = backbone, model_path = model_path, input_shape = input_shape, \
+        Init_Epoch = Init_Epoch, Freeze_Epoch = Freeze_Epoch, UnFreeze_Epoch = UnFreeze_Epoch, Freeze_batch_size = Freeze_batch_size, Unfreeze_batch_size = Unfreeze_batch_size, Freeze_Train = Freeze_Train, \
+        Init_lr = Init_lr, Min_lr = Min_lr, optimizer_type = optimizer_type, momentum = momentum, lr_decay_type = lr_decay_type, \
+        save_period = save_period, save_dir = save_dir, num_workers = num_workers, num_train = num_train, num_val = num_val
+    )
+    #---------------------------------------------------------#
+    #   总训练世代指的是遍历全部数据的总次数
+    #   总训练步长指的是梯度下降的总次数 
+    #   每个训练世代包含若干训练步长，每个训练步长进行一次梯度下降。
+    #   此处仅建议最低训练世代，上不封顶，计算时只考虑了解冻部分
+    #----------------------------------------------------------#
+    wanted_step = 1.5e4 if optimizer_type == "sgd" else 0.5e4
+    total_step  = num_train // Unfreeze_batch_size * UnFreeze_Epoch
+    if total_step <= wanted_step:
+        wanted_epoch = wanted_step // (num_train // Unfreeze_batch_size) + 1
+        print("\n\033[1;33;44m[Warning] 使用%s优化器时，建议将训练总步长设置到%d以上。\033[0m"%(optimizer_type, wanted_step))
+        print("\033[1;33;44m[Warning] 本次运行的总训练数据量为%d，Unfreeze_batch_size为%d，共训练%d个Epoch，计算出总训练步长为%d。\033[0m"%(num_train, Unfreeze_batch_size, UnFreeze_Epoch, total_step))
+        print("\033[1;33;44m[Warning] 由于总训练步长为%d，小于建议总步长%d，建议设置总世代为%d。\033[0m"%(total_step, wanted_step, wanted_epoch))
+
     #------------------------------------------------------#
     #   主干特征提取网络特征通用，冻结训练可以加快训练速度
     #   也可以在训练初期防止权值被破坏。
